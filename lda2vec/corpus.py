@@ -4,10 +4,11 @@ import difflib
 import pandas as pd
 
 try:
-    from pyxdameraulevenshtein import damerau_levenshtein_distance_withNPArray
+    from pyxdameraulevenshtein import damerau_levenshtein_distance_ndarray
 except ImportError:
     pass
 
+damerau_levenshtein_distance_withNPArray = damerau_levenshtein_distance_ndarray
 
 class Corpus():
     _keys_frequency = None
@@ -481,7 +482,7 @@ class Corpus():
         return words
 
     def compact_word_vectors(self, vocab, filename=None, array=None,
-                             top=20000):
+                             top=361):
         """ Retrieve pretrained word spectors for our vocabulary.
         The returned word array has row indices corresponding to the
         compact index of a word, and columns correponding to the word
@@ -530,9 +531,12 @@ class Corpus():
         >>> sim_shuttle_astro > sim_shuttle_cold
         True
         """
+        top = len(self.compact_to_loose)
         n_words = len(self.compact_to_loose)
         from gensim.models.word2vec import Word2Vec
-        model = Word2Vec.load_word2vec_format(filename, binary=True)
+        import gensim
+        model = gensim.models.Word2Vec.load(filename)
+        #model = Word2Vec.load_word2vec_format(filename, binary=True)
         n_dim = model.syn0.shape[1]
         data = np.random.normal(size=(n_words, n_dim)).astype('float32')
         data -= data.mean()
@@ -551,7 +555,8 @@ class Corpus():
         rep0 = lambda w: w
         rep1 = lambda w: w.replace(' ', '_')
         rep2 = lambda w: w.title().replace(' ', '_')
-        reps = [rep0, rep1, rep2]
+        rep3 = lambda w: w.split('/')[0]
+        reps = [rep0, rep1, rep2,rep3]
         for compact in np.arange(top):
             loose = self.compact_to_loose.get(compact, None)
             if loose is None:
@@ -563,16 +568,26 @@ class Corpus():
             vector = None
             for rep in reps:
                 clean = rep(word)
+                #clean = word   #shivang
                 if clean in model.vocab:
+                    print clean,'clean'
                     vector = model[clean]
+                 #   print vector, 'vector'
                     break
             if vector is None:
                 try:
                     word = unicode(word)
-                    idx = lengths >= len(word) - 3
+                    idx = lengths >= len(word)  - 3
+                  #  print idx,'idx'
                     idx &= lengths <= len(word) + 3
+                   # print idx,'idx'
+                   # print choices,'choices'
                     sel = choices[idx]
+                  #  print word,'word' #shivang
+                  #  print sel, 'sel' #shivang
                     d = damerau_levenshtein_distance_withNPArray(word, sel)
+                  #  print d , ' d'  #shivang
+
                     choice = np.array(keys_raw)[idx][np.argmin(d)]
                     # choice = difflib.get_close_matches(word, choices)[0]
                     vector = model[choice]
